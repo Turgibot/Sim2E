@@ -1,2 +1,2 @@
 # Sim2E
-Robotic arm simulator and a neuromorphic vision sensor emulator   
+We introduce our Mujoco based, Interbotix vx300s digital twin with six degrees of freedom (DOF) robotic arm, mounted with a virtual event camera. The robotic arm 3D model is in a configurable virtual lab, rendered in the Unity3D game engine, and the events are generated using the Esim event camera simulator. The system can generate, and record simulated neuromorphic vision data while the robot arm is in motion. 
