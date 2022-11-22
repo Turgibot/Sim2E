@@ -1,7 +1,6 @@
 import glob
 import argparse
 import os
-import h5py
 import pandas as pd
 import numpy as np
 from event_packagers import *

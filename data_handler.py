@@ -1,13 +1,9 @@
 import numpy as np
 import cv2
-from datetime import datetime
-import pickle as pkl
 import pathlib
 
-from pytest import param
 import os
 import esim_torch as esim_torch
-import glob
 import torch
 
 
@@ -54,6 +50,7 @@ def visualize_data(shared_data):
     neg_th = None
     pos_th = None
     dir_name="spikes_output"
+    title = "Sim2E Visualizer"
     while True:
         width = shared_data[0]
         height = shared_data[1]
@@ -123,15 +120,10 @@ def visualize_data(shared_data):
             recording = False
 
         frame_counter += 1
-
-            
-
-        cv2.imshow("", all_frames)
+        cv2.imshow(title, all_frames)
         if cv2.waitKey(1) == 27:
             break
         
-
-    
     cv2.destroyAllWindows()
 
 def render(x, y, t, p, shape):
@@ -170,31 +162,3 @@ def get_depth_frame(width, height, frame, stereo):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     frame = cv2.flip(frame, 0)
     return frame
-
-def get_spike_frame(frame, prev_frame, pos_th, neg_th):
-    pos_th/=1000
-    neg_th/=1000
-
-    src_shape = (frame.shape[0], frame.shape[1], 3) 
-    colored_frame = None
-    if prev_frame is not None:
-        spikes_frame = getSpikesFrom2Frames(prev_frame, frame, pos_th, neg_th).flatten()
-        shape = [int(x) for x in spikes_frame.shape]
-        colored_frame = np.zeros(shape=shape+[3], dtype="uint8")
-        colored_frame[spikes_frame==-1] = [255, 0, 0] 
-        colored_frame[spikes_frame==1] = [0, 0, 255] 
-        colored_frame = colored_frame.reshape(src_shape)
-        
-    return frame, colored_frame
-
-def getSpikesFrom2Frames(prev_frame, frame, pos_th, neg_th):
-        
-    frame = np.array(np.log(frame), dtype=np.float16)
-    prev_frame = np.array(np.log(prev_frame), dtype=np.float16)
-    deltas = np.array(frame-prev_frame, dtype=np.float16)
-    deltas = np.where(deltas >= pos_th, 1, deltas)
-    deltas = np.where(deltas <= -neg_th, -1, deltas)
-    deltas = np.where(deltas > 1, 0, deltas)
-    deltas = np.where(deltas < -1 , 0, deltas)
-        
-    return deltas

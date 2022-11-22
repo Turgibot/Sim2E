@@ -14,8 +14,6 @@ import time
 import mujoco_py as mjc
 import os
 import numpy as np
-import glfw
-import cv2
 from .utilities import *
 
 class Mujocoation:

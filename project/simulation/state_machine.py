@@ -10,15 +10,12 @@ This class solves the IK problem and creates a list of states.
 Each state is a dictionary of joint torques
 
 """
-from cmath import acos, asin
-from multiprocessing.connection import wait
-import random
+from cmath import acos
 from cv2 import sqrt
 import numpy as np
-from sympy import rot_axis1, rot_axis2, rot_axis3
+from sympy import rot_axis1, rot_axis2
 
 from .utilities import *
-import mujoco_py as mjc
 
 
 class States:
