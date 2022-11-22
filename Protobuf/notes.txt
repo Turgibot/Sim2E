@@ -1,0 +1,15 @@
+
+------------------------------
+1. build protobuf files in unity
+------------------------------
+cd /home/turgibot/UnityRoboticArmProject/Assets/Grpc/Protobuf
+./protoc -I . --csharp_out=. --grpc_out=. --plugin=protoc-gen-grpc=grpc_csharp_plugin UnityStreamer.proto
+------------------------------
+
+
+------------------------------
+2. build protobuf files for server in python
+------------------------------
+cd to UnityStreamer.proto location
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. UnityStreamer.proto
+------------------------------

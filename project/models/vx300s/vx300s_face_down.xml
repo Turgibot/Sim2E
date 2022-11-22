@@ -1,0 +1,128 @@
+<mujoco model="VX300s">
+
+    <compiler angle="radian" meshdir="meshes" balanceinertia="true" />
+    
+    <asset>
+        <mesh file="Base.stl" />
+        <mesh file="Shoulder.stl" />
+        <mesh file="Link1.stl" />
+        <mesh file="Link2.stl" />
+        <mesh file="Link3.stl" />
+        <mesh file="Link4.stl" />
+        <mesh file="Gripper.stl" />
+        <mesh file="N.stl" />
+        <mesh file="B.stl" />
+        <mesh file="E.stl" />
+        <mesh file="L.stl" />
+        <mesh file="ZED.stl" scale="0.001 0.001 0.001"/>
+        <mesh file="shelves.stl" scale="0.015 0.01 0.015"/>
+        <mesh file="torus.stl" scale="0.002 0.002 0.002"/>
+        <mesh file="tetrahedron.stl" scale="0.001 0.001 0.001"/>
+        <mesh file="mug.stl" scale="0.0005 0.0005 0.0005"/>
+        <mesh file="spinner.stl" scale="0.001 0.001 0.002"/>
+
+        
+        <texture  name="floor_tile" file="meshes/floor_tile.png" width="3000" height="3000" type="2d"/>
+        <material name="tile" texture="floor_tile" specular="0" shininess="0" reflectance="0" emission="1" />
+        <material name="black" specular="1" shininess="1" reflectance="1" rgba="0.08 0.08 0.08 1" emission="1" />
+        <material name="gray" specular="1" shininess="1" reflectance="1" rgba="0.1 0.1 0.1 1" emission="1" />
+        <material name="dark_gray" specular="0.5" shininess="0.5" reflectance="1" rgba="0.08 0.08 0.1 1" emission="1" />
+        <material name="white" specular="0" shininess="0" reflectance="0" rgba="1 1 1 1" emission="1" />
+
+        <texture name="foam_blocks" file="meshes/foam_blocks.png" width="1994" height="1884" type="2d"/>
+        <material name="foam" texture="foam_blocks" specular="0" shininess="0" reflectance="0" emission="1" />
+        <texture type="skybox" builtin="gradient" rgb1="1 1 1" rgb2=".6 .8 1" width="256" height="256"/>
+    </asset>
+
+    <contact>
+        <exclude body1="base_link" body2="link1"/>
+        <exclude body1="link1"     body2="link2"/>
+        <exclude body1="target"    body2="link6"/>
+        <exclude body1="target"    body2="EE"/>
+        <exclude body1="EE"        body2="link6"/>
+    </contact>
+
+    <worldbody>
+        <camera fovy="45" pos="0 0 2" />
+        <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1"/>
+        
+        <body name="hand" pos="0 0 0" mocap="true"/>
+        <geom name="floor_foam_block" euler="0 0 0" pos="0 0 0" size="0.5 0.5 0.05" type="plane" rgba="1 0.83 0.61 1" material="foam"/>
+        
+        <geom name="floor_grey_tile" pos="0 0 -0.001"  size="0.7 0.7 0.05" type="plane" material="tile"/>
+
+        <body name="base_link" pos="0 0 0">
+            <geom name="link0" type="mesh" mesh="Base" pos="0 0 0" material="dark_gray"/>
+            <inertial pos="0 0 0" mass="1.226" diaginertia="0.25 0.25 0.25"/>
+            
+            <body name="link1" pos="0 0 0.067">
+            <joint name='joint0' pos="0 0 0" axis="0 0 1" ref="1.5708"/>
+            <geom name="link1" type="mesh" mesh="Shoulder" pos="0 0 0" material="dark_gray"/>
+            <inertial pos="0 0 0" mass="0.798614" diaginertia="0.3 0.3 0.3"/>
+            
+                <body name="link2" pos="0 0.0005 0.045">
+                    <joint name='joint1' pos="0 -0.0008 0.0058" axis="1 0 0" />
+                    <geom name="link2" type="mesh" mesh="Link1" pos="0 0 0" euler="1.5708 0 0" material="dark_gray"/>
+                    <geom name="N" type="mesh" mesh="N" pos="0 0.005 0.24" euler="-1.5708 0 0" material="white"/>
+                    <geom name="B" type="mesh" mesh="B" pos="0 0.010 0.0025"   euler="1.5708 0 0" material="white"/>
+                    <geom name="E" type="mesh" mesh="E" pos="0 0.010 0.005"   euler="1.5708 0 0" material="white"/>
+                    <geom name="L" type="mesh" mesh="L" pos="0 0.005 0.0075"   euler="1.5708 3.14 0" material="white"/>
+                    <inertial pos="0 -0.0008 0.0058" mass="0.792592" euler="1.5708 0 0" diaginertia="0.3 0.3 0.3"/>
+                    
+                    <body name="link3" pos="0 -0.057 0.3055">
+                    <inertial pos="0 -0.0038 0.00" mass="0.322228" euler="1.5708 0 1.5708" diaginertia="0.275 0.275 0.275"/>
+                    <joint name='joint2' pos="0 -0.0038 0.00" axis="1 0 0" ref="1.5708"/>
+                    <geom name="link3" type="mesh" mesh="Link2" pos="0 0 0" euler="1.5708 0 1.5708" material="dark_gray"/>
+                    
+                        <body name="link4" pos="0 -0.1995 0.0">
+                        <inertial pos="0 -0.0038 0.00" mass="0.414823" euler="1.5708 0 1.5708" diaginertia="0.175 0.175 0.175"/>
+                        <joint name='joint3' pos="0 -0.0038 0.00" axis="0 1 0" ref="-1.5708"/>
+                        <geom name="link4" type="mesh" mesh="Link3" pos="0 0 0" euler="1.5708 0 -1.5708" material="dark_gray"/>
+                    
+                            <body name="link5" pos="0 -0.104 -0.005">
+                                <inertial pos="0.00 0.00 0.00475" mass="0.115395" euler="0 0 0" diaginertia="0.175 0.175 0.175"/>
+                                <joint name='joint4' pos="0.00 0.00 0.00475" axis="1 0 0" ref="0"/>
+                                <geom name="link5" type="mesh" mesh="Link4" pos="0 0 0" euler="0 0 0" material="dark_gray"/>
+                                     <body name="zed" pos="0 -0.08 0.065" euler="1.4 0 1.5708">  
+                                            <geom name="zed" type="mesh" mesh="ZED" pos="0 0 0"  material="gray"/>
+                                            <inertial pos="0 0 0" mass="0.159"  diaginertia="0.025 0.025 0.025"/>
+                                               
+                                                <body name="left_cam" pos="0.02 0.06 0" >
+                                                    <site name="left_cam"  type="sphere" size="0.01" rgba="0 0 1 1" />
+                                                </body>
+                                                 <body name="right_cam" pos="0.02 -0.06 0" >
+                                                    <site name="right_cam" type="sphere" size="0.01" rgba="0 0 1 1" />
+                                                </body>
+                                               
+                                        </body>
+                                            <body name="link6" pos="0 0.0075 0.05525">
+                                            <inertial pos="0 0 0" mass="0.1666" euler="-1.5708 0 0" diaginertia="0.025 0.025 0.025"/>
+                                            <joint name='joint5' pos="0 0 0" axis="0 0 1" ref="0"/>
+                                            <geom name="link6" type="mesh" mesh="Gripper" pos="0 0 0" euler="-1.5708 0 0" material="dark_gray"/>
+                                        
+                                        <body name="EE" pos="0 -0.0075 0.1" euler="1.5708 1.5708 1.5708">
+                                            <!-- <site type="sphere" size="0.02" rgba="0 1 0 .75"/> -->
+                                        </body>
+                                </body>
+                            </body>
+                        </body>
+                    </body>
+                </body>
+            </body>
+        </body>
+         <body name="target" pos="0 0.35 0.05" mocap="true">
+            <geom name="target" type="box" size="0.02 0.02 0.02" pos="0 0 -0.03" rgba="0 1 0 1"/>
+        </body>
+        
+    </worldbody>
+
+    <actuator>
+        <motor name="joint0_motor" joint="joint0" />
+        <motor name="joint1_motor" joint="joint1" />
+        <motor name="joint2_motor" joint="joint2" />
+        <motor name="joint3_motor" joint="joint3" />
+        <motor name="joint4_motor" joint="joint4" />
+        <motor name="joint5_motor" joint="joint5" />
+    </actuator>
+
+</mujoco>
