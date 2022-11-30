@@ -30,7 +30,7 @@ index:  values
 '''
 
 def run(from_build=False, sim_params=None, sim_positions=None):
-    unity_src = "./unity_builds/build0002.x86_64 &"
+    unity_src = "./unity_builds/build0003.x86_64 &"
     unity = None
     if from_build:
         os.system(unity_src)

@@ -69,17 +69,17 @@ def add_losses_to_csv(csv_path, gt_folder, inference_folder):
         scene_gt_folder_path = os.path.join(gt_folder, scene)
         gts_images = os.listdir(scene_gt_folder_path)
         gts_images.sort()
-        gts_images.pop() # remove first image inference
+        # gts_images.pop() # remove first image inference
 
         ours = os.listdir(our_inferences)
         ours.sort()
-        ours.pop()
-        ours.pop(0)
+        ours.pop(0) # remove first image inference
+        ours.pop() # remove timestamp.txt
 
         event_cnn_min = os.listdir(ecm_inferences)
         event_cnn_min.sort()
-        event_cnn_min.pop()
         event_cnn_min.pop(0)
+        event_cnn_min.pop()
 
         firenet = os.listdir(fire_inferences)
         firenet.sort()
@@ -87,6 +87,7 @@ def add_losses_to_csv(csv_path, gt_folder, inference_folder):
         
         e2vid = os.listdir(e2vid_inferences)
         e2vid.sort()
+        e2vid.pop(0)
         e2vid.pop()
 
         gts_color = [cv2.imread(os.path.join(scene_gt_folder_path, img)) for img in gts_images]
@@ -176,21 +177,20 @@ def add_losses_to_csv(csv_path, gt_folder, inference_folder):
         row_index = df.index[df['number'] == int(scene)]
         for j, result in enumerate(results):
             df.loc[row_index, loss_cols[j]] = result
-        print(row_index[0])
+        print(row_index[0],"/",len(scenes))
     df.to_csv(csv_path)
         
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(
-    #     description='collect results from loss analysis to a single csv')
-    # parser.add_argument('-s', '--source_folder', required=True, type=str,
-    #                     help='path to the parent folder containing the h5 files')
-    # parser.add_argument('-c', '--csv_file', required=True, type=str)
-    # parser.add_argument('-i', '--inference_folder', default="inference", type=str)
-    # parser.add_argument('-gt', '--gt_folder', default="gt_images", type=str)
+    parser = argparse.ArgumentParser(
+        description='collect results from loss analysis to a single csv')
+    parser.add_argument('-s', '--source_folder', required=True, type=str,
+                        help='path to the parent folder containing the h5 files')
+    parser.add_argument('-c', '--csv_file', required=True, type=str)
+    parser.add_argument('-i', '--inference_folder', default="inference", type=str)
+    parser.add_argument('-gt', '--gt_folder', default="gt_images", type=str)
 
-    # args = parser.parse_args()
-    # create_csv(args.source_folder, args.csv_file)
-    # add_losses_to_csv(args.csv_file, args.gt_folder, args.inference_folder)
-    add_losses_to_csv("/home/guy/Projects/Results/Davis/davis_results.csv", "/home/guy/Projects/Results/Davis/gt_images", "/home/guy/Projects/Results/Davis/inference")
+    args = parser.parse_args()
+    create_csv(args.source_folder, args.csv_file)
+    add_losses_to_csv(args.csv_file, args.gt_folder, args.inference_folder)

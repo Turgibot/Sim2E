@@ -69,7 +69,7 @@ def visualize_data(shared_data):
             frame = np.array(list(image_data), dtype = np.uint8)
             depth_frame = np.array(list(depth_data), dtype = np.uint8)
             if esim is None:
-                esim = esim_torch.esim_torch.EventSimulator_torch(neg_th,pos_th,100)
+                esim = esim_torch.esim_torch.EventSimulator_torch(neg_th,pos_th,1e6)
                 img_width = width
                 if stereo:
                     img_width = width * 2

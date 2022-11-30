@@ -7,7 +7,7 @@ from tqdm import tqdm
 from zipfile import ZipFile
 import pathlib
 
-def conver_h5_folder_to_txt(src="/home/guy/Projects/Results/base/h5_data", dest="/home/guy/Projects/Results/base/xt_data", zip=True, delete=True):
+def conver_h5_folder_to_txt(src="/home/guy/Projects/Results/speed/h5_data", dest="/home/guy/Projects/Results/speed/txt_data", zip=True, delete=True):
     pathlib.Path(dest).mkdir(parents=True, exist_ok=True)
     h5_files = os.listdir(src)
     for h5 in tqdm(h5_files):
@@ -32,8 +32,8 @@ def h5_to_txt(h5_file_path, txt_file_path):
     with open(txt_file_path, 'w') as t:
         t.write(str(resolution[1])+" "+str(resolution[0])+"\n")
         for event in events:
-            t.write(str(event[0]/10e5)+" "+str(event[1])+" "+str(event[2])+" "+str(event[3])+"\n")
-
+            t.write(str(event[0])+" "+str(event[1])+" "+str(event[2])+" "+str(event[3])+"\n")
+            
 def read_h5_events(hdf_path):
    
     with h5py.File( hdf_path, 'r') as f:
