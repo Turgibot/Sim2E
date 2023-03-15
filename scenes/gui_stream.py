@@ -29,7 +29,8 @@ index:  values
     12: Target - 0 to 6 [cube, sphere, tetrahedron, torus, mug, spinner, capsule]
 '''
 
-def run(from_build=False, sim_params=None, sim_positions=None):
+def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=None, look_at_target=False):
+    # TODO: Remove False at end (AG)
     unity_src = "./unity_builds/build0003.x86_64 &"
     unity = None
     if from_build:
@@ -37,15 +38,16 @@ def run(from_build=False, sim_params=None, sim_positions=None):
         time.sleep(7)
     unity = mjremote()
     while not unity._s:  
-        print("conecting...")
-        unity.connect() 
+        print("connecting...")
+        time.sleep(5) # TODO: Make this better (AG)
+        unity.connect()
     print("SUCCESS")
     
     xml_path = "./project/models/vx300s/vx300s_face_down.xml"
     scene = Mujocoation(xml_path, unity)
     robot = Robot(scene.model, scene.simulation)
     control = Control(robot, scene.simulation)
-    moore = UnitySensingStateMachine(robot, scene, control, orientation=1)
+    moore = UnitySensingStateMachine(robot, scene, control, orientation=1, look_at_target=look_at_target)
     robot_status = 0
     while True:
         if sim_params[0] == 0:
@@ -72,6 +74,21 @@ def run(from_build=False, sim_params=None, sim_positions=None):
             pos = robot.get_joints_pos()
             for i, p in enumerate(pos):
                 sim_positions[i] = p
+        ### Added by AG
+        try:
+            robot_ee_conf = robot.get_target('EE')
+            # robot_fk = control.FK(robot.get_joints_pos())
+            # robot_fk_l = robot_fk.reshape(16,)
+            # print("AG testing robot_ee_conf", np.round(robot_ee_conf,2))
+            # print("AG testing robot_fk_l", np.round(robot_fk_l,2))
+            for i, p in enumerate(robot_ee_conf):
+                sim_ee_config[i] = p
+            robot_cam_conf = robot.get_target('zed')
+            for i, p in enumerate(robot_cam_conf):
+                sim_ee_config[i+6] = p
+        except Exception:
+            print("AG testing error robot position")
+        #####
 
     
 if __name__ == '__main__':

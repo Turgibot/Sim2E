@@ -49,7 +49,15 @@ for i in range(6):
 
 for i in range(13):
     shared_params.append(-1)
-    
+
+### Added by AG
+### First 6 values are EE (x,y,z,roll,pitch,yaw)
+### Next 6 values are Camera (x,y,z,roll,pitch,yaw)
+sim_ee_config = manager.list()
+for i in range(12):
+    sim_ee_config.append(-1)
+####
+
 
 class UnityStreamerServicer(UnityStreamer_pb2_grpc.UnityStreamerServicer):
     def __init__(self, record_conn):
@@ -70,6 +78,7 @@ class UnityStreamerServicer(UnityStreamer_pb2_grpc.UnityStreamerServicer):
             for i, prm in enumerate(shared_data[5]):
                 shared_params[i] = prm
             
+            # print(self.record_conn, data.timestamp, shared_params[9]) # TODO: Remove
             if self.record_conn is not None:
                 self.record_conn.send(shared_data)
             
@@ -95,8 +104,8 @@ def start_server(record_conn):
     asyncio.get_event_loop().run_until_complete(serve(servicer))
 
 
-def start_mujoco(from_build=False, shared_params=None, sim_positions=None):
-    gui_stream.run(from_build, shared_params, sim_positions)
+def start_mujoco(from_build=False, shared_params=None, sim_positions=None, sim_ee_matrix=None):
+    gui_stream.run(from_build, shared_params, sim_positions, sim_ee_matrix)
 
 def start_real_arm(sim_positions):
     while shared_params[8]<=0 :
@@ -117,8 +126,9 @@ def start_real_arm(sim_positions):
 def start(unity_from_build=True):
     
     p0 = mp.Process(target=start_server, args=(None,))
-    p1 = mp.Process(target=start_mujoco , args=(unity_from_build, shared_params, sim_positions))
-    p2 = mp.Process(target=data_handler.visualize_data , args=(shared_data,))
+    # p1 = mp.Process(target=start_mujoco , args=(unity_from_build, shared_params, sim_positions, sim_ee_config))
+    p1 = mp.Process(target=gui_stream.run , args=(unity_from_build, shared_params, sim_positions, sim_ee_config, True))
+    p2 = mp.Process(target=data_handler.visualize_data , args=(shared_data, sim_positions, sim_ee_config))
     p3 = mp.Process(target=start_real_arm, args=(sim_positions,))
     
     

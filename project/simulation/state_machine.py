@@ -288,6 +288,7 @@ class UnitySensingStateMachine:
         self.look_at_z_theta = 0
         self.look_at_config = self.start_config
         self.wait = True
+        self.shake_added = False
         # print(self.targets)
     
     
@@ -320,6 +321,7 @@ class UnitySensingStateMachine:
                     return
                 self.wait = True
                 self.setTrajectory()
+                self.shake_added = False
 
             elif self.curr_state == States.LOOK:
                 
@@ -330,12 +332,16 @@ class UnitySensingStateMachine:
                 for i in range(self.num_steps):
                     self.steps_positions.append((curr_ee_pos+((i+1)/self.num_steps)*diff))
                 # set the next state as the steps
-                self.curr_state = States.STEPS 
+                self.curr_state = States.STEPS
                 self.set_step()
 
             elif self.curr_state == States.STEPS+self.steps_counter:
+                if not self.shake_added: # Added by AG
+                    self.addShakeToTrajectory()
+                    self.shake_added = True
                 self.steps_counter += 1
                 if self.steps_counter >= self.num_steps:
+                    self.shake_added = False # Added by AG
                     if self.is_return:
                         self.curr_state = States.RETURN
                         self.curr_final_target = self.external_target
@@ -353,9 +359,34 @@ class UnitySensingStateMachine:
                 for i in range(self.num_steps):
                     self.steps_positions.append((curr_ee_pos+((i+1)/self.num_steps)*diff))
                 # set the next state as the steps
-                self.curr_state = States.STEPS 
+                self.curr_state = States.STEPS
                 self.set_step()
-                
+
+    def addShakeToTrajectory(self): # Added by AG
+        curr_ee_pos = self.robot.get_ee_position()
+        print("AG testing curr_ee_position:", curr_ee_pos)
+        print("AG testing curr_final_target:", self.curr_final_target)
+        # Testing
+        for link_name in ['base_link', 'link1', 'link2', 'link3', 'link4', 'link5', 'link6', 'EExyz', 'EE', 'zed']:
+            robot_link_conf = self.robot.get_target(link_name)
+            print("AG testing robot_link_conf", link_name, np.round(robot_link_conf,2))
+            # print("AG testing robot_link_rot", link_name, np.round(euler_to_rotMat(*robot_link_conf[3:]),2))
+        ### Recording only starts after a certain distance from rest
+        ### So let the arm approach the target then shake
+        ### Last shake_positions should be curr_ee_pos
+        shake_diffs = [0.02, 0.04, 0.02, 0, -0.02, -0.04, -0.02, 0]
+        shake_positions = self.steps_positions[0:20]
+        shake_start = shake_positions[-1]
+        curr_htm = self.control.FK(self.robot.get_joints_pos())
+        print("AG testing curr_htm", np.round(curr_htm,2))
+        curr_rot = curr_htm[:3, :3]
+        for i in range(self.num_steps - len(shake_positions)):
+            di = i % len(shake_diffs)
+            position = shake_start + np.dot(curr_rot, np.array([shake_diffs[di], 0, 0]))
+            shake_positions.append(position)
+        self.steps_positions = shake_positions
+        ###
+
     def setTrajectory(self):
         if not self.look_at_target:
             # create the next states, positions

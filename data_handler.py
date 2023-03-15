@@ -3,9 +3,12 @@ import cv2
 import pathlib
 
 import os
-import esim_torch as esim_torch
+import time
+# import esim_torch as esim_torch
 import torch
 
+# Added by AG
+from datetime import datetime as dt
 
 '''
 shared_data[0] = data.width
@@ -33,9 +36,10 @@ index:  values
     12: Target - 0 to 6 [cube, sphere, tetrahedron, torus, mug, spinner, capsule]
 '''
 
-def visualize_data(shared_data):
+def visualize_data(shared_data, sim_positions = None, sim_ee_config = None):
     frame_counter = 0
-    record_counter = 0
+    # record_counter = 0
+    record_counter = int(dt.now().timestamp())
     num_events = 0
     esim = None
     prev_gray_frame = None
@@ -51,6 +55,7 @@ def visualize_data(shared_data):
     pos_th = None
     dir_name="spikes_output"
     title = "Sim2E Visualizer"
+    last_print = dt.now().timestamp() # Added by AG
     while True:
         width = shared_data[0]
         height = shared_data[1]
@@ -58,8 +63,20 @@ def visualize_data(shared_data):
         depth_data = shared_data[3]
         timestamp = shared_data[4]
 
+        ts_now = dt.now().timestamp()
+        if ts_now > last_print + 5:
+            should_print = True
+            last_print = ts_now
+        else:
+            should_print = False
+        if should_print:
+            print("AG testing before visualize_data")
         try:
-            params = list(shared_data[5])
+            if type(shared_data[5]) == list:
+                params = list(shared_data[5]) # TODO: AG Fix error
+            else:
+                time.sleep(1)
+                continue
             if pos_th!= params[6]/1000 or neg_th != params[7]/1000 or stereo != params[10]:
                 stereo = params[10]
                 esim = None
@@ -69,16 +86,16 @@ def visualize_data(shared_data):
             frame = np.array(list(image_data), dtype = np.uint8)
             depth_frame = np.array(list(depth_data), dtype = np.uint8)
             if esim is None:
-                esim = esim_torch.esim_torch.EventSimulator_torch(neg_th,pos_th,1e6)
+                # esim = esim_torch.esim_torch.EventSimulator_torch(neg_th,pos_th,1e6)
                 img_width = width
                 if stereo:
                     img_width = width * 2
                 
                 shape = [height, img_width, 3]
-                continue
-        except:
+                # continue # Removed by AG
+        except Exception as e:
+            print("AG testing error", e)
             continue
-        
         if params[0] == 0:
                 cv2.destroyAllWindows()
                 return
@@ -88,11 +105,13 @@ def visualize_data(shared_data):
         depth_frame_bgr = cv2.cvtColor(depth_frame, cv2.COLOR_GRAY2BGR)
 
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # print(image.shape)
         log_image = np.log(image.astype("float32") / 255 + 1e-5)
-        log_image = torch.from_numpy(log_image).cuda()
+        log_image = torch.from_numpy(log_image) #.cuda()
         
-        timestamps_ns = torch.from_numpy(np.array([timestamp],dtype=np.int64)).cuda()
-        sub_events = esim.forward(log_image, timestamps_ns[0])
+        # timestamps_ns = torch.from_numpy(np.array([timestamp],dtype=np.int64)) #.cuda()
+        # sub_events = esim.forward(log_image, timestamps_ns[0]) # Removed by AG
+        sub_events = None # Added by AG
 
         # for the first image, no events are generated, so this needs to be skipped
         if sub_events is not None:
@@ -103,12 +122,26 @@ def visualize_data(shared_data):
         else:
             all_frames = cv2.vconcat([frame, depth_frame_bgr, np.zeros_like(frame)])
 
+        #### Added by AG
+        sub_events = {'width': width, 'height': height, 'timestamp': timestamp} # TODO: Added by AG
+        try:
+            sub_events['thetas'] = sim_positions
+            np_ee_vector = np.array(sim_ee_config)
+            np_ee_matrix = np_ee_vector.reshape(2,6)
+            sub_events['ee_matrix'] = np_ee_matrix
+            # Note: the position of the EE is the first three values
+            # Note: the position is in meters, so a factor of 1/100 of params 2-4
+        except Exception as e:
+            print("AG testing: exception setting sub_events", e)
+            pass
+        #####
+
         # record the events and the frame 
         if params[9]==1 and sub_events is not None:
             if recording is False:
                 recording = True
                 scene_path = os.path.join(dir_name, "%010d" % (record_counter))
-                record_counter += 1
+                record_counter = int(dt.now().timestamp())
                 frame_counter = 0
                 pathlib.Path(scene_path).mkdir(parents=True, exist_ok=True)
 

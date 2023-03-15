@@ -26,7 +26,7 @@ def video_to_h5(source_path="../images", target_folder="../h5_data", neg_th = 0.
         # lines.sort()
         timestamps = [x.split(' ')[1] for x in lines]
         timestamps = np.array([float(x)*1e10 for x in timestamps], dtype=np.int64)
-        timestamps_ns = torch.from_numpy(timestamps).cuda()
+        timestamps_ns = torch.from_numpy(timestamps) #.cuda()
     
     for i, image in enumerate(tqdm(images)):
         image_path = os.path.join(source_path, image)
@@ -34,7 +34,7 @@ def video_to_h5(source_path="../images", target_folder="../h5_data", neg_th = 0.
         shape = img.shape
         image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         log_image = np.log(image.astype("float32") / 255 + 1e-5)
-        log_image = torch.from_numpy(log_image).cuda()
+        log_image = torch.from_numpy(log_image) #.cuda()
         sub_events = esim.forward(log_image, timestamps_ns[i])
    
         # for the first image, no events are generated, so this needs to be skipped
