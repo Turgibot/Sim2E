@@ -1,9 +1,6 @@
-*/__pycache__/
-*/*/__pycache__/
-*/*/*/__pycache__/
+__pycache__/
 spikes_output/
 unity_builds/
-*.pyc
 
 # -------------------------------------------------------------------------------------------------------
 # Source: https://gist.github.com/GhostofGoes/94580e76cd251972b15b4821c8a06f59
