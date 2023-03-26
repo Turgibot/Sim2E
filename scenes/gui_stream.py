@@ -9,6 +9,7 @@ from project.simulation.state_machine import UnitySensingStateMachine, States
 from project.simulation.controller import Control
 from project.simulation.utilities import *
 from project.simulation.mjremote import mjremote
+from project.simulation.unity_enums import UnityEnums, RobotStatusEnums, AppStatusEnums
 
 
 '''
@@ -52,26 +53,33 @@ def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=Non
     robot = Robot(scene.model, scene.simulation)
     control = Control(robot, scene.simulation)
     moore = UnitySensingStateMachine(robot, scene, control, orientation=1, look_at_target=look_at_target)
-    robot_status = 0
+    robot_status = RobotStatusEnums.SLEEP
     while True:
-        if sim_params[0] == 0:
+        if sim_params[UnityEnums.APP_STATUS] == AppStatusEnums.OFF:
             return
         
-        speed = sim_params[5]
-        if robot_status != sim_params[1]:
-            robot_status = sim_params[1]
-            if robot_status == 0:
+        # Adjust robot status
+        speed = sim_params[UnityEnums.SPEED]
+        if robot_status != sim_params[UnityEnums.ROBOT_STATUS]:
+            robot_status = sim_params[UnityEnums.ROBOT_STATUS]
+            if robot_status == RobotStatusEnums.SLEEP:
                 control.phase = 0
                 control.theta_d = robot.nap
-            elif robot_status == 1:
+            elif robot_status == RobotStatusEnums.START_CONFIG:
                 control.phase = 0
                 control.theta_d = moore.start_config
-            elif robot_status == 2:
-                pos = [sim_params[2]/100, sim_params[3]/100, sim_params[4]/100]
+            elif robot_status == RobotStatusEnums.TARGETING:
+                # Adds targeted object when "Go To Target" clicked
+                pos = [sim_params[UnityEnums.XPOS]/100, 
+                       sim_params[UnityEnums.YPOS]/100, 
+                       sim_params[UnityEnums.ZPOS]/100]
                 moore.set_external_target(pos)
                 moore.curr_state = States.INIT
-        if robot_status == 2:
+        
+        # Apply state machine to get next step
+        if robot_status == RobotStatusEnums.TARGETING:
             moore.eval()
+        
         control.PID(speed)
         scene.show_step()
         if sim_positions is not None:
