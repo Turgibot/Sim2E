@@ -30,7 +30,7 @@ index:  values
 '''
 
 def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=None, look_at_target=False):
-    # TODO: Remove False at end (AG)
+    print(f"Will run with look_at_target = {look_at_target}")
     unity_src = "./unity_builds/build0003.x86_64 &"
     unity = None
     if from_build:

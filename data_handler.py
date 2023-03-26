@@ -36,7 +36,8 @@ index:  values
     12: Target - 0 to 6 [cube, sphere, tetrahedron, torus, mug, spinner, capsule]
 '''
 
-def visualize_data(shared_data, sim_positions = None, sim_ee_config = None):
+def visualize_data(shared_data, sim_positions = None, 
+                   sim_ee_config = None, dir_name = "spikes_output"):
     frame_counter = 0
     # record_counter = 0
     record_counter = int(dt.now().timestamp())
@@ -53,7 +54,7 @@ def visualize_data(shared_data, sim_positions = None, sim_ee_config = None):
     handle = None
     neg_th = None
     pos_th = None
-    dir_name="spikes_output"
+    dir_name = "spikes_output" if dir_name is None else dir_name
     title = "Sim2E Visualizer"
     last_print = dt.now().timestamp() # Added by AG
     while True:

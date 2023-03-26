@@ -50,8 +50,21 @@ Run the following command to start the simulation
 ```bash
 python main.py
 ```
-
-
-
+Run with real robot arm attached
+```bash
+python main.py -r
+```
+Enable EE to look at target before motion
+```bash
+python main.py -l
+```
+Change output folder for npz files
+```bash
+python -o your_folder_name
+```
+Additional arguments
+```bash
+python main.py --help
+```
 
 
