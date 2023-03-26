@@ -337,7 +337,7 @@ class UnitySensingStateMachine:
 
             elif self.curr_state == States.STEPS+self.steps_counter:
                 if not self.shake_added: # Added by AG
-                    self.addShakeToTrajectory()
+                    # self.addShakeToTrajectory()
                     self.shake_added = True
                 self.steps_counter += 1
                 if self.steps_counter >= self.num_steps:
@@ -374,7 +374,7 @@ class UnitySensingStateMachine:
         ### Recording only starts after a certain distance from rest
         ### So let the arm approach the target then shake
         ### Last shake_positions should be curr_ee_pos
-        shake_diffs = [0.02, 0.04, 0.02, 0, -0.02, -0.04, -0.02, 0]
+        shake_diffs = [0.01, 0.02, 0.01, 0, -0.01, -0.02, -0.01, 0]
         shake_positions = self.steps_positions[0:20]
         shake_start = shake_positions[-1]
         curr_htm = self.control.FK(self.robot.get_joints_pos())
