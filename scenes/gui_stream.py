@@ -30,17 +30,21 @@ index:  values
 '''
 
 def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=None, look_at_target=False):
-    print(f"Will run with look_at_target = {look_at_target}")
+    print(f"Running with look_at_target = {look_at_target}")
     unity_src = "./unity_builds/build0003.x86_64 &"
     unity = None
     if from_build:
         os.system(unity_src)
-        time.sleep(7)
     unity = mjremote()
+    attempt = 0
     while not unity._s:  
-        print("connecting...")
-        time.sleep(5) # TODO: Make this better (AG)
-        unity.connect()
+        print(f"Connecting to Unity, attempt {attempt}...")
+        time.sleep(2)
+        try:
+            unity.connect() # Blocking
+        except ConnectionRefusedError as e:
+            unity._s = None
+            attempt += 1
     print("SUCCESS")
     
     xml_path = "./project/models/vx300s/vx300s_face_down.xml"
