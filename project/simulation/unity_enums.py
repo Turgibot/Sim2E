@@ -4,6 +4,14 @@
 #############
 
 '''
+This is the data that Unity sends:
+    shared_data[0] = data.width
+    shared_data[1] = data.height
+    shared_data[2] = data.image_data
+    shared_data[3] = data.depth_data
+    shared_data[4] = data.timestamp
+    shared_data[5] = list(data.params)
+
 These are the params that unity sends:
 index:  values
     0: AppStatus - 1 unity is on, 0 to turnoff the app                        
@@ -20,8 +28,18 @@ index:  values
     11: Lighting - 0 to 1.5 multiplied by 100
     12: Target - 0 to 6 [cube, sphere, tetrahedron, torus, mug, spinner, capsule]
 '''
-    
-class UnityEnums:
+
+
+class UnityDataEnum:
+    WIDTH = 0
+    HEIGHT = 1
+    IMAGE_DATA = 2
+    DEPTH_DATA = 3
+    TIMESTAMP = 4
+    PARAMS = 5
+
+
+class UnityEnum:
     APP_STATUS = 0
     ROBOT_STATUS = 1
     XPOS = 2
@@ -36,11 +54,28 @@ class UnityEnums:
     LIGHTING = 11
     TARGET = 12
 
-class AppStatusEnums:
+
+class AppStatusEnum:
     ON = 1
     OFF = 0
 
-class RobotStatusEnums:
+
+class RobotStatusEnum:
     SLEEP = 0
     START_CONFIG = 1
     TARGETING = 2
+
+
+class AttachEnum:
+    NOT_ATTACH = 0
+    ATTACH = 1
+
+
+class RecordEnum:
+    OFF = 0
+    ON = 1
+
+
+class StereoEnum:
+    MONOSCOPIC = 0
+    STEREOSCOPIC = 1

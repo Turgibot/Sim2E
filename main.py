@@ -13,6 +13,7 @@ import argparse
 import data_handler
 from scenes import gui_stream
 from RoboticArm import RoboticArm
+from project.simulation.unity_enums import *
 
 from datetime import datetime
 '''
@@ -70,20 +71,20 @@ class UnityStreamerServicer(UnityStreamer_pb2_grpc.UnityStreamerServicer):
     
         async for data in request_iterator:
             
-            shared_data[0] = data.width
-            shared_data[1] = data.height
-            shared_data[2] = data.image_data
-            shared_data[3] = data.depth_data
-            shared_data[4] = data.timestamp
-            shared_data[5] = list(data.params)
-            for i, prm in enumerate(shared_data[5]):
+            shared_data[UnityDataEnum.WIDTH] = data.width
+            shared_data[UnityDataEnum.HEIGHT] = data.height
+            shared_data[UnityDataEnum.IMAGE_DATA] = data.image_data
+            shared_data[UnityDataEnum.DEPTH_DATA] = data.depth_data
+            shared_data[UnityDataEnum.TIMESTAMP] = data.timestamp
+            shared_data[UnityDataEnum.PARAMS] = list(data.params)
+            for i, prm in enumerate(shared_data[UnityDataEnum.PARAMS]):
                 shared_params[i] = prm
             
             # print(self.record_conn, data.timestamp, shared_params[9]) # TODO: Remove
             if self.record_conn is not None:
                 self.record_conn.send(shared_data)
             
-            if shared_params[0] == 0:
+            if shared_params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
                 exit(0)
                 
 
@@ -109,8 +110,8 @@ def start_mujoco(from_build=False, shared_params=None, sim_positions=None, sim_e
     gui_stream.run(from_build, shared_params, sim_positions, sim_ee_matrix)
 
 def start_real_arm(sim_positions):
-    while shared_params[8]<=0 :
-        if shared_params[0] == 0:
+    while shared_params[UnityEnum.ATTACH] <= AttachEnum.NOT_ATTACH :
+        if shared_params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
             return
         pass
     factor = 0
@@ -118,7 +119,8 @@ def start_real_arm(sim_positions):
     nap_configuration = [-0.5*np.pi, -0.6*np.pi, 1*np.pi, 0.5*np.pi, 0.4*np.pi, 0]
     robotic_arm.enable_torque()
     robotic_arm.set_map_from_nap(nap_configuration)
-    while shared_params[8]==1 and shared_params[0] != 0:
+    while shared_params[UnityEnum.ATTACH] == AttachEnum.ATTACH and \
+        shared_params[UnityEnum.APP_STATUS] != AppStatusEnum.OFF:
         factor+=1
         if sim_positions[0] != 0:
             robotic_arm.set_position_from_sim(sim_positions)
@@ -129,8 +131,13 @@ def start(output_folder, unity_from_build=True,
     
     p0 = mp.Process(target=start_server, args=(None,))
     # p1 = mp.Process(target=start_mujoco , args=(unity_from_build, shared_params, sim_positions, sim_ee_config))
-    p1 = mp.Process(target=gui_stream.run , args=(unity_from_build, shared_params, sim_positions, sim_ee_config, look_at_target))
-    p2 = mp.Process(target=data_handler.visualize_data , args=(shared_data, sim_positions, sim_ee_config, output_folder))
+    p1 = mp.Process(target=gui_stream.run , 
+                    args=(unity_from_build, shared_params, 
+                          sim_positions, sim_ee_config, 
+                          look_at_target))
+    p2 = mp.Process(target=data_handler.visualize_data , 
+                    args=(shared_data, sim_positions, 
+                          sim_ee_config, output_folder))
     if real_arm:
         print("Connecting real arm")
         p3 = mp.Process(target=start_real_arm, args=(sim_positions,))

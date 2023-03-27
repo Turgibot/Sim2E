@@ -9,7 +9,7 @@ from project.simulation.state_machine import UnitySensingStateMachine, States
 from project.simulation.controller import Control
 from project.simulation.utilities import *
 from project.simulation.mjremote import mjremote
-from project.simulation.unity_enums import UnityEnums, RobotStatusEnums, AppStatusEnums
+from project.simulation.unity_enums import UnityEnum, RobotStatusEnum, AppStatusEnum
 
 
 '''
@@ -53,31 +53,31 @@ def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=Non
     robot = Robot(scene.model, scene.simulation)
     control = Control(robot, scene.simulation)
     moore = UnitySensingStateMachine(robot, scene, control, orientation=1, look_at_target=look_at_target)
-    robot_status = RobotStatusEnums.SLEEP
+    robot_status = RobotStatusEnum.SLEEP
     while True:
-        if sim_params[UnityEnums.APP_STATUS] == AppStatusEnums.OFF:
+        if sim_params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
             return
         
         # Adjust robot status
-        speed = sim_params[UnityEnums.SPEED]
-        if robot_status != sim_params[UnityEnums.ROBOT_STATUS]:
-            robot_status = sim_params[UnityEnums.ROBOT_STATUS]
-            if robot_status == RobotStatusEnums.SLEEP:
+        speed = sim_params[UnityEnum.SPEED]
+        if robot_status != sim_params[UnityEnum.ROBOT_STATUS]:
+            robot_status = sim_params[UnityEnum.ROBOT_STATUS]
+            if robot_status == RobotStatusEnum.SLEEP:
                 control.phase = 0
                 control.theta_d = robot.nap
-            elif robot_status == RobotStatusEnums.START_CONFIG:
+            elif robot_status == RobotStatusEnum.START_CONFIG:
                 control.phase = 0
                 control.theta_d = moore.start_config
-            elif robot_status == RobotStatusEnums.TARGETING:
+            elif robot_status == RobotStatusEnum.TARGETING:
                 # Adds targeted object when "Go To Target" clicked
-                pos = [sim_params[UnityEnums.XPOS]/100, 
-                       sim_params[UnityEnums.YPOS]/100, 
-                       sim_params[UnityEnums.ZPOS]/100]
+                pos = [sim_params[UnityEnum.XPOS]/100, 
+                       sim_params[UnityEnum.YPOS]/100, 
+                       sim_params[UnityEnum.ZPOS]/100]
                 moore.set_external_target(pos)
                 moore.curr_state = States.INIT
         
         # Apply state machine to get next step
-        if robot_status == RobotStatusEnums.TARGETING:
+        if robot_status == RobotStatusEnum.TARGETING:
             moore.eval()
         
         control.PID(speed)

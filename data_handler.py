@@ -9,6 +9,7 @@ import torch
 
 # Added by AG
 from datetime import datetime as dt
+from project.simulation.unity_enums import *
 
 '''
 shared_data[0] = data.width
@@ -58,11 +59,11 @@ def visualize_data(shared_data, sim_positions = None,
     title = "Sim2E Visualizer"
     last_print = dt.now().timestamp() # Added by AG
     while True:
-        width = shared_data[0]
-        height = shared_data[1]
-        image_data = shared_data[2]
-        depth_data = shared_data[3]
-        timestamp = shared_data[4]
+        width = shared_data[UnityDataEnum.WIDTH]
+        height = shared_data[UnityDataEnum.HEIGHT]
+        image_data = shared_data[UnityDataEnum.IMAGE_DATA]
+        depth_data = shared_data[UnityDataEnum.DEPTH_DATA]
+        timestamp = shared_data[UnityDataEnum.TIMESTAMP]
 
         ts_now = dt.now().timestamp()
         if ts_now > last_print + 5:
@@ -73,17 +74,19 @@ def visualize_data(shared_data, sim_positions = None,
         if should_print:
             print("AG testing before visualize_data")
         try:
-            if type(shared_data[5]) == list:
-                params = list(shared_data[5]) # TODO: AG Fix error
+            if type(shared_data[UnityDataEnum.PARAMS]) == list:
+                params = list(shared_data[UnityDataEnum.PARAMS])
             else:
                 time.sleep(1)
                 continue
-            if pos_th!= params[6]/1000 or neg_th != params[7]/1000 or stereo != params[10]:
-                stereo = params[10]
+            if pos_th != params[UnityEnum.POSTH]/1000 or \
+                neg_th != params[UnityEnum.NEGTH]/1000 or \
+                    stereo != params[UnityEnum.STEREO]:
+                stereo = params[UnityEnum.STEREO]
                 esim = None
 
-            neg_th = params[7]/1000
-            pos_th = params[6]/1000
+            neg_th = params[UnityEnum.NEGTH]/1000
+            pos_th = params[UnityEnum.POSTH]/1000
             frame = np.array(list(image_data), dtype = np.uint8)
             depth_frame = np.array(list(depth_data), dtype = np.uint8)
             if esim is None:
@@ -97,16 +100,15 @@ def visualize_data(shared_data, sim_positions = None,
         except Exception as e:
             print("AG testing error", e)
             continue
-        if params[0] == 0:
+        if params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
                 cv2.destroyAllWindows()
                 return
 
-        frame = get_frame(width, height, frame, params[10])
-        depth_frame = get_depth_frame(width, height, depth_frame, params[10])
+        frame = get_frame(width, height, frame, params[UnityEnum.STEREO])
+        depth_frame = get_depth_frame(width, height, depth_frame, params[UnityEnum.STEREO])
         depth_frame_bgr = cv2.cvtColor(depth_frame, cv2.COLOR_GRAY2BGR)
 
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # print(image.shape)
         log_image = np.log(image.astype("float32") / 255 + 1e-5)
         log_image = torch.from_numpy(log_image) #.cuda()
         
@@ -138,7 +140,7 @@ def visualize_data(shared_data, sim_positions = None,
         #####
 
         # record the events and the frame 
-        if params[9]==1 and sub_events is not None:
+        if params[UnityEnum.RECORD] == RecordEnum.ON and sub_events is not None:
             if recording is False:
                 recording = True
                 scene_path = os.path.join(dir_name, "%010d" % (record_counter))
