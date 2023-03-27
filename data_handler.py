@@ -42,8 +42,9 @@ index:  values
 
 def visualize_data(shared_data, sim_positions = None, 
                    sim_ee_config = None, dir_name = "spikes_output",
-                   use_esim = False):
+                   use_esim = False, disable_camera = False):
     print(f"Running with use_esim = {use_esim}")
+    print(f"Running with disable_camera = {disable_camera}")
     if use_esim and esim_torch is None:
         use_esim = False
         print("Error loading esim_torch, events will not be generated")
@@ -53,6 +54,7 @@ def visualize_data(shared_data, sim_positions = None,
     shape = None
     neg_th = None
     pos_th = None
+    spike_frame = None
     dir_name = "spikes_output" if dir_name is None else dir_name
     title = "Sim2E Visualizer"
 
@@ -104,9 +106,7 @@ def visualize_data(shared_data, sim_positions = None,
                 continue
             # Run esim
             sub_events, spike_frame = apply_esim(esim, image_gray, timestamp, shape)
-            all_frames = cv2.vconcat([frame, depth_frame_bgr, spike_frame])
         else:
-            all_frames = cv2.vconcat([frame, depth_frame_bgr])
             sub_events = {}
 
         # record the events and the frame 
@@ -135,9 +135,15 @@ def visualize_data(shared_data, sim_positions = None,
             recording = False
 
         # Show camera
-        cv2.imshow(title, all_frames)
-        if cv2.waitKey(1) == 27:
-            break
+        if not disable_camera:
+            if spike_frame is not None:
+                all_frames = cv2.vconcat([frame, depth_frame_bgr, spike_frame])
+            else:
+                all_frames = cv2.vconcat([frame, depth_frame_bgr])
+            cv2.imshow(title, all_frames)
+            # This might show error message of "cannot move to thread"
+            if cv2.waitKey(1) == 27:
+                break
         
     cv2.destroyAllWindows()
 

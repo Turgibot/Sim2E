@@ -128,7 +128,7 @@ def start_real_arm(sim_positions):
 
 def start(output_folder, unity_from_build = True, 
           real_arm = False, look_at_target = False,
-          use_esim = False):
+          use_esim = False, disable_camera = False):
     
     p0 = mp.Process(target=start_server, args=(None,))
     # p1 = mp.Process(target=start_mujoco , args=(unity_from_build, shared_params, sim_positions, sim_ee_config))
@@ -139,7 +139,7 @@ def start(output_folder, unity_from_build = True,
     p2 = mp.Process(target=data_handler.visualize_data , 
                     args=(shared_data, sim_positions, 
                           sim_ee_config, output_folder,
-                          use_esim))
+                          use_esim, disable_camera))
     if real_arm:
         print("Connecting real arm")
         p3 = mp.Process(target=start_real_arm, args=(sim_positions,))
@@ -159,16 +159,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Runs the NBEL Robot Arm Unity simulator')
     parser.add_argument('--output_folder', '-o', help='Output folder to save recorded data, can be absolute path. Defaults to spikes_output')
     parser.add_argument('--look_at_target', '-l', action='store_true', help='EE looks at target before motion')
+    parser.add_argument('--disable_camera', '-dc', action='store_true', help='Disable camera output window')
     parser.add_argument('--create_events', '-e', action='store_true', help='Create events at runtime. Requires esim_torch and CUDA')
     parser.add_argument('--real_arm', '-r', action='store_true', help='Run with real (physical) arm attached')
     args = parser.parse_args()
     output_folder = "spikes_output" if args.output_folder is None else args.output_folder
     print(f"Output from recordings will be saved to {output_folder}")
+    disable_camera = True if args.disable_camera == True else False
     look_at_target = True if args.look_at_target == True else False
     use_esim = True if args.create_events == True else False
     real_arm = True if args.real_arm == True else False
     start(output_folder = output_folder, real_arm = real_arm, 
-          look_at_target = look_at_target, use_esim = use_esim)
+          look_at_target = look_at_target, use_esim = use_esim,
+          disable_camera = disable_camera)
 
 
   
