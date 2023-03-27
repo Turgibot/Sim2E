@@ -47,29 +47,16 @@ def visualize_data(shared_data, sim_positions = None,
     if use_esim and esim_torch is None:
         use_esim = False
         print("Error loading esim_torch, events will not be generated")
-    frame_counter = 0
-    # num_events = 0
     esim = None
-    spike_frame = None
-    stereo = False
+    stereo = StereoEnum.MONOSCOPIC
     recording = False
     shape = None
     neg_th = None
     pos_th = None
     dir_name = "spikes_output" if dir_name is None else dir_name
     title = "Sim2E Visualizer"
-    last_print = dt.now().timestamp() # Added by AG
+
     while True:
-        # Set up conditional logging
-        ts_now = dt.now().timestamp()
-        if ts_now > last_print + 5:
-            should_print = True
-            last_print = ts_now
-        else:
-            should_print = False
-        if should_print:
-            print("AG testing before visualize_data")
-        
         width = shared_data[UnityDataEnum.WIDTH]
         height = shared_data[UnityDataEnum.HEIGHT]
         image_data = shared_data[UnityDataEnum.IMAGE_DATA]
@@ -86,87 +73,68 @@ def visualize_data(shared_data, sim_positions = None,
         else:
             time.sleep(1)
             continue
+
         # Quit if app closed
         if params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
-                cv2.destroyAllWindows()
-                return
+            cv2.destroyAllWindows()
+            return
 
         frame = np.array(list(image_data), dtype = np.uint8)
         frame = get_frame(width, height, frame, params[UnityEnum.STEREO])
         depth_frame = np.array(list(depth_data), dtype = np.uint8)
         depth_frame = get_depth_frame(width, height, depth_frame, params[UnityEnum.STEREO])
         depth_frame_bgr = cv2.cvtColor(depth_frame, cv2.COLOR_GRAY2BGR)
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        image_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
         if use_esim:
             # ESIM restart due to change in camera settings
-            if pos_th != params[UnityEnum.POSTH]/1000 or \
-                neg_th != params[UnityEnum.NEGTH]/1000 or \
+            if pos_th != params[UnityEnum.POSTH] or \
+                neg_th != params[UnityEnum.NEGTH] or \
                     stereo != params[UnityEnum.STEREO]:
                 stereo = params[UnityEnum.STEREO]
                 esim = None
-            neg_th = params[UnityEnum.NEGTH]/1000
-            pos_th = params[UnityEnum.POSTH]/1000
+                neg_th = params[UnityEnum.NEGTH]
+                pos_th = params[UnityEnum.POSTH]
             # Set up esim object
             if esim is None:
-                esim = esim_torch.esim_torch.EventSimulator_torch(neg_th,pos_th,1e6)
-                img_width = width
-                if stereo:
-                    img_width = width * 2
-                
+                esim = esim_torch.esim_torch.EventSimulator_torch(
+                    neg_th / 1000, pos_th / 1000, 1e6)
+                img_width = width * 2 if stereo == StereoEnum.STEREOSCOPIC else width
                 shape = [height, img_width, 3]
                 continue
             # Run esim
-            # log_image = np.log(image.astype("float32") / 255 + 1e-5)
-            # log_image = torch.from_numpy(log_image).cuda()
-            # timestamps_ns = torch.from_numpy(np.array([timestamp],dtype=np.int64)).cuda()
-            # sub_events = esim.forward(log_image, timestamps_ns[0])
-
-            # for the first image, no events are generated, so this needs to be skipped
-            # also don't perform if no esim
-            # if sub_events is not None:
-            #     sub_events = {k: v.cpu() for k, v in sub_events.items()}    
-            #     # num_events += len(sub_events['t'])
-            #     spike_frame = render(shape=shape, **sub_events)
-            #     all_frames = cv2.vconcat([frame, depth_frame_bgr, spike_frame])
-            # else:
-            sub_events, spike_frame = apply_esim(esim, image, timestamp, shape)
-                # all_frames = cv2.vconcat([frame, depth_frame_bgr, np.zeros_like(frame)])
+            sub_events, spike_frame = apply_esim(esim, image_gray, timestamp, shape)
             all_frames = cv2.vconcat([frame, depth_frame_bgr, spike_frame])
         else:
             all_frames = cv2.vconcat([frame, depth_frame_bgr])
             sub_events = {}
 
-
-        #### Added by AG
-        if sub_events is not None:
-            sub_events['width'] = width
-            sub_events['height'] = height
-            sub_events['timestamp'] = timestamp
-            sub_events['thetas'] = sim_positions
-            # Note: the position of the EE is the first three values
-            # Note: the position is in meters, so a factor of 1/100 of params 2-4
-            np_ee_vector = np.array(sim_ee_config)
-            sub_events['ee_matrix'] = np_ee_vector.reshape(2,6)
-        #####
-
         # record the events and the frame 
         if params[UnityEnum.RECORD] == RecordEnum.ON and sub_events is not None:
+            # Create new recording folder
             if recording is False:
                 recording = True
                 record_counter = int(dt.now().timestamp())
                 scene_path = os.path.join(dir_name, "%010d" % (record_counter))
-                frame_counter = 0
                 pathlib.Path(scene_path).mkdir(parents=True, exist_ok=True)
-
+                frame_counter = 0
+            # Record data to file
             output_path = os.path.join(scene_path, "%010d.npz" % frame_counter)
-            sub_events["img"] = image
-            sub_events["meta"] = np.array(params, dtype=np.int32)
+            np_ee_vector = np.array(sim_ee_config)
+            sub_events.update({
+                'width': width, 'height': height, 'timestamp': timestamp,
+                'thetas': sim_positions, 'img': image_gray, 
+                'meta': np.array(params, dtype=np.int32),
+                'ee_matrix': np_ee_vector.reshape(2,6)
+                })
+            # Note: the position of the EE is the first three values
+            # Note: the position is in meters, so a factor of 1/100 of params 2-4
             np.savez(output_path, **sub_events)
+            frame_counter += 1
         else:
             recording = False
 
-        frame_counter += 1
+        # Show camera
         cv2.imshow(title, all_frames)
         if cv2.waitKey(1) == 27:
             break
@@ -178,9 +146,9 @@ def apply_esim(esim, image, timestamp, shape):
     log_image = torch.from_numpy(log_image).cuda()
     timestamps_ns = torch.from_numpy(np.array([timestamp],dtype=np.int64)).cuda()
     sub_events = esim.forward(log_image, timestamps_ns[0])
+    # for the first image, no events are generated, so this needs to be skipped
     if sub_events is not None:
         sub_events = {k: v.cpu() for k, v in sub_events.items()}    
-        # num_events += len(sub_events['t'])
         spike_frame = render(shape=shape, **sub_events)
     else:
         spike_frame = np.full(shape=shape, fill_value=0, dtype="uint8")
