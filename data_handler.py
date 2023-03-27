@@ -4,7 +4,10 @@ import pathlib
 
 import os
 import time
-# import esim_torch as esim_torch
+try:
+    import esim_torch
+except Exception as e:
+    esim_torch = None
 import torch
 
 # Added by AG
@@ -38,7 +41,12 @@ index:  values
 '''
 
 def visualize_data(shared_data, sim_positions = None, 
-                   sim_ee_config = None, dir_name = "spikes_output"):
+                   sim_ee_config = None, dir_name = "spikes_output",
+                   use_esim = False):
+    print(f"Running with use_esim = {use_esim}")
+    if use_esim and esim_torch is None:
+        use_esim = False
+        print("Error loading esim_torch, events will not be generated")
     frame_counter = 0
     # record_counter = 0
     record_counter = int(dt.now().timestamp())
@@ -74,11 +82,13 @@ def visualize_data(shared_data, sim_positions = None,
         if should_print:
             print("AG testing before visualize_data")
         try:
+            # Load shared params
             if type(shared_data[UnityDataEnum.PARAMS]) == list:
                 params = list(shared_data[UnityDataEnum.PARAMS])
             else:
                 time.sleep(1)
                 continue
+            # ESIM restart, change in camera settings
             if pos_th != params[UnityEnum.POSTH]/1000 or \
                 neg_th != params[UnityEnum.NEGTH]/1000 or \
                     stereo != params[UnityEnum.STEREO]:
@@ -89,14 +99,14 @@ def visualize_data(shared_data, sim_positions = None,
             pos_th = params[UnityEnum.POSTH]/1000
             frame = np.array(list(image_data), dtype = np.uint8)
             depth_frame = np.array(list(depth_data), dtype = np.uint8)
-            if esim is None:
-                # esim = esim_torch.esim_torch.EventSimulator_torch(neg_th,pos_th,1e6)
+            if use_esim and esim is None:
+                esim = esim_torch.esim_torch.EventSimulator_torch(neg_th,pos_th,1e6)
                 img_width = width
                 if stereo:
                     img_width = width * 2
                 
                 shape = [height, img_width, 3]
-                # continue # Removed by AG
+                continue
         except Exception as e:
             print("AG testing error", e)
             continue
@@ -110,23 +120,37 @@ def visualize_data(shared_data, sim_positions = None,
 
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         log_image = np.log(image.astype("float32") / 255 + 1e-5)
-        log_image = torch.from_numpy(log_image) #.cuda()
+        if torch.cuda.is_available():
+            log_image = torch.from_numpy(log_image).cuda()
+        else:
+            log_image = torch.from_numpy(log_image)
         
-        # timestamps_ns = torch.from_numpy(np.array([timestamp],dtype=np.int64)) #.cuda()
-        # sub_events = esim.forward(log_image, timestamps_ns[0]) # Removed by AG
-        sub_events = None # Added by AG
+        if use_esim:
+            timestamps_ns = torch.from_numpy(np.array([timestamp],dtype=np.int64)).cuda()
+            sub_events = esim.forward(log_image, timestamps_ns[0])
+        else:
+            sub_events = None
 
         # for the first image, no events are generated, so this needs to be skipped
-        if sub_events is not None:
-            sub_events = {k: v.cpu() for k, v in sub_events.items()}    
-            num_events += len(sub_events['t'])
-            spike_frame = render(shape=shape, **sub_events)
-            all_frames = cv2.vconcat([frame, depth_frame_bgr, spike_frame])
+        # also don't perform if no esim
+        if use_esim:
+            if sub_events is not None:
+                sub_events = {k: v.cpu() for k, v in sub_events.items()}    
+                num_events += len(sub_events['t'])
+                spike_frame = render(shape=shape, **sub_events)
+                all_frames = cv2.vconcat([frame, depth_frame_bgr, spike_frame])
+            else:
+                all_frames = cv2.vconcat([frame, depth_frame_bgr, np.zeros_like(frame)])
+                sub_events = {}
         else:
-            all_frames = cv2.vconcat([frame, depth_frame_bgr, np.zeros_like(frame)])
+            all_frames = cv2.vconcat([frame, depth_frame_bgr])
+            sub_events = {}
 
         #### Added by AG
-        sub_events = {'width': width, 'height': height, 'timestamp': timestamp} # TODO: Added by AG
+        sub_events['width'] = width
+        sub_events['height'] = height
+        sub_events['timestamp'] = timestamp
+
         try:
             sub_events['thetas'] = sim_positions
             np_ee_vector = np.array(sim_ee_config)
