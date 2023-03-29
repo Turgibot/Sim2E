@@ -69,7 +69,6 @@ class UnitySensingStateMachine:
         self.look_at_z_theta = 0
         self.look_at_config = self.start_config
         self.wait = True
-        self.shake_added = False
     
     
     def next_state(self):
@@ -101,27 +100,13 @@ class UnitySensingStateMachine:
                     return
                 self.wait = True
                 self.setTrajectory()
-                self.shake_added = False
 
             elif self.curr_state == States.LOOK:
-                
-                # create the next states, positions
-                self.steps_positions = [] #empty list
-                curr_ee_pos = self.robot.get_ee_position()
-                diff = self.curr_final_target - curr_ee_pos
-                for i in range(self.num_steps):
-                    self.steps_positions.append((curr_ee_pos+((i+1)/self.num_steps)*diff))
-                # set the next state as the steps
-                self.curr_state = States.STEPS
-                self.set_step()
+                self.restartStepsPositions(add_shake=True)
 
             elif self.curr_state == States.STEPS+self.steps_counter:
-                if not self.shake_added: # Added by AG
-                    # self.addShakeToTrajectory()
-                    self.shake_added = True
                 self.steps_counter += 1
                 if self.steps_counter >= self.num_steps:
-                    self.shake_added = False # Added by AG
                     if self.is_return:
                         self.curr_state = States.RETURN
                         self.curr_final_target = self.external_target
@@ -133,14 +118,7 @@ class UnitySensingStateMachine:
                     self.set_step()
 
             elif self.curr_state == States.RETURN:
-                self.steps_positions = [] #empty list
-                curr_ee_pos = self.robot.get_ee_position()
-                diff = self.start_pos - curr_ee_pos 
-                for i in range(self.num_steps):
-                    self.steps_positions.append((curr_ee_pos+((i+1)/self.num_steps)*diff))
-                # set the next state as the steps
-                self.curr_state = States.STEPS
-                self.set_step()
+                self.restartStepsPositions(end_ee_pos=self.start_pos)
 
     def addShakeToTrajectory(self): # Added by AG
         curr_ee_pos = self.robot.get_ee_position()
@@ -154,7 +132,7 @@ class UnitySensingStateMachine:
         ### Recording only starts after a certain distance from rest
         ### So let the arm approach the target then shake
         ### Last shake_positions should be curr_ee_pos
-        shake_diffs = [0.01, 0.02, 0.01, 0, -0.01, -0.02, -0.01, 0]
+        shake_diffs = [0.02, 0.04, 0.02, 0, -0.02, -0.04, -0.02, 0]
         shake_positions = self.steps_positions[0:20]
         shake_start = shake_positions[-1]
         curr_htm = self.control.FK(self.robot.get_joints_pos())
@@ -162,22 +140,14 @@ class UnitySensingStateMachine:
         curr_rot = curr_htm[:3, :3]
         for i in range(self.num_steps - len(shake_positions)):
             di = i % len(shake_diffs)
-            position = shake_start + np.dot(curr_rot, np.array([shake_diffs[di], 0, 0]))
+            position = shake_start + np.dot(curr_rot, np.array([0, 0, shake_diffs[di]]))
             shake_positions.append(position)
         self.steps_positions = shake_positions
         ###
 
     def setTrajectory(self):
         if not self.look_at_target:
-            # create the next states, positions
-            self.steps_positions = [] #empty list
-            curr_ee_pos = self.robot.get_ee_position()
-            diff = self.curr_final_target - curr_ee_pos
-            for i in range(self.num_steps):
-                self.steps_positions.append((curr_ee_pos+((i+1)/self.num_steps)*diff))
-            # set the next state as the steps
-            self.curr_state = States.STEPS 
-            self.set_step()
+            self.restartStepsPositions(add_shake=True)
         else:
             self.calculate_look_at_target_angles()
             curr_htm = self.control.FK(self.robot.get_joints_pos())
@@ -190,7 +160,20 @@ class UnitySensingStateMachine:
             self.look_at_config = self.control.IK(curr_htm)
             self.curr_state = States.LOOK
 
-
+    def restartStepsPositions(self, end_ee_pos = None, add_shake = False):
+        if end_ee_pos is None:
+            end_ee_pos = self.curr_final_target
+        # create the next states, positions
+        self.steps_positions = [] #empty list
+        curr_ee_pos = self.robot.get_ee_position()
+        diff = end_ee_pos - curr_ee_pos
+        for i in range(self.num_steps):
+            self.steps_positions.append((curr_ee_pos+((i+1)/self.num_steps)*diff))
+        if add_shake:
+            self.addShakeToTrajectory()
+        # set the next state as the steps
+        self.curr_state = States.STEPS 
+        self.set_step()
 
     def output(self):
         #output is dependant of the current state
@@ -218,10 +201,6 @@ class UnitySensingStateMachine:
         self.curr_state_target = self.steps_positions[self.steps_counter]
         self.curr_state_configuration = np.r_[np.c_[self.target_orientation, self.curr_state_target], [[0,0,0,1]]]
         self.curr_state = States.STEPS + self.steps_counter
-    
-    def step_back(self):
-        self.curr_state_target = self.steps_positions[self.steps_counter]
-        self.curr_state = States.RETURN + self.steps_counter
 
     def calculate_look_at_target_angles(self):
         # align the x axis with a vector facing the target --> No X rotation
