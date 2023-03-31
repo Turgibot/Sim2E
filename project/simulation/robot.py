@@ -126,7 +126,6 @@ class Robot:
         return np.copy(self.simulation.data.get_body_xpos('EE'))
     
    
-    # Parameter added by AG
     def get_target(self, target_name='target'):
         """ Returns the position and orientation of the target """
         
@@ -156,8 +155,7 @@ class Robot:
    
     def get_links_positions(self):
         pos_dict = {}
-        names = ['base_link', 'link1', 'link2', 'link3', 'link4', 'link5', 'link6', 'EE']
-        names += ['zed'] # Added by AG, TODO: remove
+        names = ['base_link', 'link1', 'link2', 'link3', 'link4', 'link5', 'link6', 'EE', 'zed']
         for name in names:
             pos = self.simulation.data.get_body_xpos(name)
             pos_dict[name]=pos

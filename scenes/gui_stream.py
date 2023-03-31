@@ -30,7 +30,8 @@ index:  values
     12: Target - 0 to 6 [cube, sphere, tetrahedron, torus, mug, spinner, capsule]
 '''
 
-def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=None, look_at_target=False):
+def run(from_build=False, sim_params=None, sim_positions=None, 
+        sim_ee_config=None, look_at_target=False, add_shake=False):
     print(f"Running with look_at_target = {look_at_target}")
     unity_src = "./unity_builds/build0003.x86_64 &"
     unity = None
@@ -52,7 +53,10 @@ def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=Non
     scene = Mujocoation(xml_path, unity)
     robot = Robot(scene.model, scene.simulation)
     control = Control(robot, scene.simulation)
-    moore = UnitySensingStateMachine(robot, scene, control, orientation=1, look_at_target=look_at_target)
+    moore = UnitySensingStateMachine(robot, scene, control, 
+                                     orientation=1, 
+                                     look_at_target=look_at_target,
+                                     add_shake=add_shake)
     robot_status = RobotStatusEnum.SLEEP
     while True:
         if sim_params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
@@ -86,7 +90,6 @@ def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=Non
             pos = robot.get_joints_pos()
             for i, p in enumerate(pos):
                 sim_positions[i] = p
-        ### Added by AG
         try:
             robot_ee_conf = robot.get_target('EE')
             # robot_fk = control.FK(robot.get_joints_pos())
@@ -99,7 +102,7 @@ def run(from_build=False, sim_params=None, sim_positions=None, sim_ee_config=Non
             for i, p in enumerate(robot_cam_conf):
                 sim_ee_config[i+6] = p
         except Exception:
-            print("AG testing error robot position")
+            print("Error writing EE and camera configurations")
         #####
 
     

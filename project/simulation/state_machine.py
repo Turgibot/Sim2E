@@ -27,7 +27,7 @@ class States:
     
 #this is a go home -> target -> go home loop    
 class UnitySensingStateMachine:
-    def __init__(self, robot, scene, control, orientation=0, look_at_target=True) -> None:
+    def __init__(self, robot, scene, control, orientation=0, look_at_target=True, add_shake=False) -> None:
         self.robot = robot
         self.scene = scene
         self.control = control
@@ -69,6 +69,7 @@ class UnitySensingStateMachine:
         self.look_at_z_theta = 0
         self.look_at_config = self.start_config
         self.wait = True
+        self.add_shake = add_shake
     
     
     def next_state(self):
@@ -102,7 +103,7 @@ class UnitySensingStateMachine:
                 self.setTrajectory()
 
             elif self.curr_state == States.LOOK:
-                self.restartStepsPositions(add_shake=True)
+                self.restartStepsPositions(add_shake=self.add_shake)
 
             elif self.curr_state == States.STEPS+self.steps_counter:
                 self.steps_counter += 1
@@ -120,14 +121,14 @@ class UnitySensingStateMachine:
             elif self.curr_state == States.RETURN:
                 self.restartStepsPositions(end_ee_pos=self.start_pos)
 
-    def addShakeToTrajectory(self): # Added by AG
+    def addShakeToTrajectory(self):
         curr_ee_pos = self.robot.get_ee_position()
-        print("AG testing curr_ee_position:", curr_ee_pos)
-        print("AG testing curr_final_target:", self.curr_final_target)
+        # print("AG testing curr_ee_position:", curr_ee_pos)
+        # print("AG testing curr_final_target:", self.curr_final_target)
         # Testing
-        for link_name in ['base_link', 'link1', 'link2', 'link3', 'link4', 'link5', 'link6', 'EExyz', 'EE', 'zed']:
-            robot_link_conf = self.robot.get_target(link_name)
-            print("AG testing robot_link_conf", link_name, np.round(robot_link_conf,2))
+        # for link_name in ['base_link', 'link1', 'link2', 'link3', 'link4', 'link5', 'link6', 'EExyz', 'EE', 'zed']:
+        #     robot_link_conf = self.robot.get_target(link_name)
+        #     print("AG testing robot_link_conf", link_name, np.round(robot_link_conf,2))
             # print("AG testing robot_link_rot", link_name, np.round(euler_to_rotMat(*robot_link_conf[3:]),2))
         ### Recording only starts after a certain distance from rest
         ### So let the arm approach the target then shake
@@ -136,7 +137,7 @@ class UnitySensingStateMachine:
         shake_positions = self.steps_positions[0:20]
         shake_start = shake_positions[-1]
         curr_htm = self.control.FK(self.robot.get_joints_pos())
-        print("AG testing curr_htm", np.round(curr_htm,2))
+        # print("AG testing curr_htm", np.round(curr_htm,2))
         curr_rot = curr_htm[:3, :3]
         for i in range(self.num_steps - len(shake_positions)):
             di = i % len(shake_diffs)
@@ -147,7 +148,7 @@ class UnitySensingStateMachine:
 
     def setTrajectory(self):
         if not self.look_at_target:
-            self.restartStepsPositions(add_shake=True)
+            self.restartStepsPositions(add_shake=self.add_shake)
         else:
             self.calculate_look_at_target_angles()
             curr_htm = self.control.FK(self.robot.get_joints_pos())

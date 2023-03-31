@@ -10,7 +10,6 @@ except Exception as e:
     esim_torch = None
 import torch
 
-# Added by AG
 from datetime import datetime as dt
 from project.simulation.unity_enums import *
 

@@ -52,13 +52,11 @@ for i in range(6):
 for i in range(13):
     shared_params.append(-1)
 
-### Added by AG
 ### First 6 values are EE (x,y,z,roll,pitch,yaw)
 ### Next 6 values are Camera (x,y,z,roll,pitch,yaw)
 sim_ee_config = manager.list()
 for i in range(12):
     sim_ee_config.append(-1)
-####
 
 
 class UnityStreamerServicer(UnityStreamer_pb2_grpc.UnityStreamerServicer):
@@ -128,14 +126,15 @@ def start_real_arm(sim_positions):
 
 def start(output_folder, unity_from_build = True, 
           real_arm = False, look_at_target = False,
-          use_esim = False, disable_camera = False):
+          use_esim = False, disable_camera = False,
+          add_shake = False):
     
     p0 = mp.Process(target=start_server, args=(None,))
     # p1 = mp.Process(target=start_mujoco , args=(unity_from_build, shared_params, sim_positions, sim_ee_config))
     p1 = mp.Process(target=gui_stream.run , 
                     args=(unity_from_build, shared_params, 
                           sim_positions, sim_ee_config, 
-                          look_at_target))
+                          look_at_target, add_shake))
     p2 = mp.Process(target=data_handler.visualize_data , 
                     args=(shared_data, sim_positions, 
                           sim_ee_config, output_folder,
@@ -159,6 +158,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Runs the NBEL Robot Arm Unity simulator')
     parser.add_argument('--output_folder', '-o', help='Output folder to save recorded data, can be absolute path. Defaults to spikes_output')
     parser.add_argument('--look_at_target', '-l', action='store_true', help='EE looks at target before motion')
+    parser.add_argument('--shake', '-s', action='store_true', help='EE shakes instead of approaching target')
     parser.add_argument('--disable_camera', '-dc', action='store_true', help='Disable camera output window')
     parser.add_argument('--create_events', '-e', action='store_true', help='Create events at runtime. Requires esim_torch and CUDA')
     parser.add_argument('--real_arm', '-r', action='store_true', help='Run with real (physical) arm attached')
@@ -167,11 +167,12 @@ if __name__ == "__main__":
     print(f"Output from recordings will be saved to {output_folder}")
     disable_camera = True if args.disable_camera == True else False
     look_at_target = True if args.look_at_target == True else False
+    add_shake = True if args.shake == True else False
     use_esim = True if args.create_events == True else False
     real_arm = True if args.real_arm == True else False
     start(output_folder = output_folder, real_arm = real_arm, 
           look_at_target = look_at_target, use_esim = use_esim,
-          disable_camera = disable_camera)
+          disable_camera = disable_camera, add_shake=add_shake)
 
 
   

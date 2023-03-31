@@ -50,6 +50,8 @@ Run the following command to start the simulation
 ```bash
 python main.py
 ```
+Certain flags can be used to adjust how the simulation operates.
+
 Run with real robot arm attached
 ```bash
 python main.py -r
@@ -57,6 +59,14 @@ python main.py -r
 Enable EE to look at target before motion
 ```bash
 python main.py -l
+```
+Make EE shake instead of going to target
+```bash
+python main.py -s
+```
+Disable extra camera window
+```bash
+python main.py -dc
 ```
 Change output folder for npz files
 ```bash
