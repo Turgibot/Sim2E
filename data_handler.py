@@ -3,9 +3,15 @@ import cv2
 import pathlib
 
 import os
-import esim_torch as esim_torch
+import time
+try:
+    import esim_torch
+except Exception as e:
+    esim_torch = None
 import torch
 
+from datetime import datetime as dt
+from project.simulation.unity_enums import *
 
 '''
 shared_data[0] = data.width
@@ -33,98 +39,125 @@ index:  values
     12: Target - 0 to 6 [cube, sphere, tetrahedron, torus, mug, spinner, capsule]
 '''
 
-def visualize_data(shared_data):
-    frame_counter = 0
-    record_counter = 0
-    num_events = 0
+def visualize_data(shared_data, sim_positions = None, 
+                   sim_ee_config = None, dir_name = "spikes_output",
+                   use_esim = False, disable_camera = False):
+    print(f"Running with use_esim = {use_esim}")
+    print(f"Running with disable_camera = {disable_camera}")
+    if use_esim and esim_torch is None:
+        use_esim = False
+        print("Error loading esim_torch, events will not be generated")
     esim = None
-    prev_gray_frame = None
-    spike_frame = None
-    prev_spike_frame = None
-    stereo = False
+    stereo = StereoEnum.MONOSCOPIC
     recording = False
-    prev_timestamp = None
     shape = None
-    img = None
-    handle = None
     neg_th = None
     pos_th = None
-    dir_name="spikes_output"
+    spike_frame = None
+    dir_name = "spikes_output" if dir_name is None else dir_name
     title = "Sim2E Visualizer"
+
     while True:
-        width = shared_data[0]
-        height = shared_data[1]
-        image_data = shared_data[2]
-        depth_data = shared_data[3]
-        timestamp = shared_data[4]
+        width = shared_data[UnityDataEnum.WIDTH]
+        height = shared_data[UnityDataEnum.HEIGHT]
+        image_data = shared_data[UnityDataEnum.IMAGE_DATA]
+        depth_data = shared_data[UnityDataEnum.DEPTH_DATA]
+        timestamp = shared_data[UnityDataEnum.TIMESTAMP]
 
-        try:
-            params = list(shared_data[5])
-            if pos_th!= params[6]/1000 or neg_th != params[7]/1000 or stereo != params[10]:
-                stereo = params[10]
+        # Load shared params
+        if type(shared_data[UnityDataEnum.PARAMS]) == list:
+            try:
+                params = list(shared_data[UnityDataEnum.PARAMS])
+            except Exception as e:
+                print(f"Exception loading params {e}")
+                continue
+        else:
+            time.sleep(1)
+            continue
+
+        # Quit if app closed
+        if params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
+            cv2.destroyAllWindows()
+            return
+
+        frame = np.array(list(image_data), dtype = np.uint8)
+        frame = get_frame(width, height, frame, params[UnityEnum.STEREO])
+        depth_frame = np.array(list(depth_data), dtype = np.uint8)
+        depth_frame = get_depth_frame(width, height, depth_frame, params[UnityEnum.STEREO])
+        depth_frame_bgr = cv2.cvtColor(depth_frame, cv2.COLOR_GRAY2BGR)
+        image_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        if use_esim:
+            # ESIM restart due to change in camera settings
+            if pos_th != params[UnityEnum.POSTH] or \
+                neg_th != params[UnityEnum.NEGTH] or \
+                    stereo != params[UnityEnum.STEREO]:
+                stereo = params[UnityEnum.STEREO]
                 esim = None
-
-            neg_th = params[7]/1000
-            pos_th = params[6]/1000
-            frame = np.array(list(image_data), dtype = np.uint8)
-            depth_frame = np.array(list(depth_data), dtype = np.uint8)
+                neg_th = params[UnityEnum.NEGTH]
+                pos_th = params[UnityEnum.POSTH]
+            # Set up esim object
             if esim is None:
-                esim = esim_torch.esim_torch.EventSimulator_torch(neg_th,pos_th,1e6)
-                img_width = width
-                if stereo:
-                    img_width = width * 2
-                
+                esim = esim_torch.esim_torch.EventSimulator_torch(
+                    neg_th / 1000, pos_th / 1000, 1e6)
+                img_width = width * 2 if stereo == StereoEnum.STEREOSCOPIC else width
                 shape = [height, img_width, 3]
                 continue
-        except:
-            continue
-        
-        if params[0] == 0:
-                cv2.destroyAllWindows()
-                return
-
-        frame = get_frame(width, height, frame, params[10])
-        depth_frame = get_depth_frame(width, height, depth_frame, params[10])
-        depth_frame_bgr = cv2.cvtColor(depth_frame, cv2.COLOR_GRAY2BGR)
-
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        log_image = np.log(image.astype("float32") / 255 + 1e-5)
-        log_image = torch.from_numpy(log_image).cuda()
-        
-        timestamps_ns = torch.from_numpy(np.array([timestamp],dtype=np.int64)).cuda()
-        sub_events = esim.forward(log_image, timestamps_ns[0])
-
-        # for the first image, no events are generated, so this needs to be skipped
-        if sub_events is not None:
-            sub_events = {k: v.cpu() for k, v in sub_events.items()}    
-            num_events += len(sub_events['t'])
-            spike_frame = render(shape=shape, **sub_events)
-            all_frames = cv2.vconcat([frame, depth_frame_bgr, spike_frame])
+            # Run esim
+            sub_events, spike_frame = apply_esim(esim, image_gray, timestamp, shape)
         else:
-            all_frames = cv2.vconcat([frame, depth_frame_bgr, np.zeros_like(frame)])
+            sub_events = {}
 
         # record the events and the frame 
-        if params[9]==1 and sub_events is not None:
+        if params[UnityEnum.RECORD] == RecordEnum.ON and sub_events is not None:
+            # Create new recording folder
             if recording is False:
                 recording = True
+                record_counter = int(dt.now().timestamp())
                 scene_path = os.path.join(dir_name, "%010d" % (record_counter))
-                record_counter += 1
-                frame_counter = 0
                 pathlib.Path(scene_path).mkdir(parents=True, exist_ok=True)
-
+                frame_counter = 0
+            # Record data to file
             output_path = os.path.join(scene_path, "%010d.npz" % frame_counter)
-            sub_events["img"] = image
-            sub_events["meta"] = np.array(params, dtype=np.int32)
+            np_ee_vector = np.array(sim_ee_config)
+            sub_events.update({
+                'width': width, 'height': height, 'timestamp': timestamp,
+                'thetas': sim_positions, 'img': image_gray, 
+                'meta': np.array(params, dtype=np.int32),
+                'ee_matrix': np_ee_vector.reshape(2,6)
+                })
+            # Note: the position of the EE is the first three values
+            # Note: the position is in meters, so a factor of 1/100 of params 2-4
             np.savez(output_path, **sub_events)
+            frame_counter += 1
         else:
             recording = False
 
-        frame_counter += 1
-        cv2.imshow(title, all_frames)
-        if cv2.waitKey(1) == 27:
-            break
+        # Show camera
+        if not disable_camera:
+            if spike_frame is not None:
+                all_frames = cv2.vconcat([frame, depth_frame_bgr, spike_frame])
+            else:
+                all_frames = cv2.vconcat([frame, depth_frame_bgr])
+            cv2.imshow(title, all_frames)
+            # This might show error message of "cannot move to thread"
+            if cv2.waitKey(1) == 27:
+                break
         
     cv2.destroyAllWindows()
+
+def apply_esim(esim, image, timestamp, shape):
+    log_image = np.log(image.astype("float32") / 255 + 1e-5)
+    log_image = torch.from_numpy(log_image).cuda()
+    timestamps_ns = torch.from_numpy(np.array([timestamp],dtype=np.int64)).cuda()
+    sub_events = esim.forward(log_image, timestamps_ns[0])
+    # for the first image, no events are generated, so this needs to be skipped
+    if sub_events is not None:
+        sub_events = {k: v.cpu() for k, v in sub_events.items()}    
+        spike_frame = render(shape=shape, **sub_events)
+    else:
+        spike_frame = np.full(shape=shape, fill_value=0, dtype="uint8")
+    return sub_events, spike_frame
 
 def render(x, y, t, p, shape):
     img = np.full(shape=shape, fill_value=0, dtype="uint8")

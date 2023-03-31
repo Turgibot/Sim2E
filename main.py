@@ -8,10 +8,12 @@ import UnityStreamer_pb2_grpc
 import numpy as np
 import cv2
 import multiprocessing as mp
+import argparse
 
 import data_handler
 from scenes import gui_stream
 from RoboticArm import RoboticArm
+from project.simulation.unity_enums import *
 
 from datetime import datetime
 '''
@@ -49,7 +51,13 @@ for i in range(6):
 
 for i in range(13):
     shared_params.append(-1)
-    
+
+### First 6 values are EE (x,y,z,roll,pitch,yaw)
+### Next 6 values are Camera (x,y,z,roll,pitch,yaw)
+sim_ee_config = manager.list()
+for i in range(12):
+    sim_ee_config.append(-1)
+
 
 class UnityStreamerServicer(UnityStreamer_pb2_grpc.UnityStreamerServicer):
     def __init__(self, record_conn):
@@ -61,19 +69,20 @@ class UnityStreamerServicer(UnityStreamer_pb2_grpc.UnityStreamerServicer):
     
         async for data in request_iterator:
             
-            shared_data[0] = data.width
-            shared_data[1] = data.height
-            shared_data[2] = data.image_data
-            shared_data[3] = data.depth_data
-            shared_data[4] = data.timestamp
-            shared_data[5] = list(data.params)
-            for i, prm in enumerate(shared_data[5]):
+            shared_data[UnityDataEnum.WIDTH] = data.width
+            shared_data[UnityDataEnum.HEIGHT] = data.height
+            shared_data[UnityDataEnum.IMAGE_DATA] = data.image_data
+            shared_data[UnityDataEnum.DEPTH_DATA] = data.depth_data
+            shared_data[UnityDataEnum.TIMESTAMP] = data.timestamp
+            shared_data[UnityDataEnum.PARAMS] = list(data.params)
+            for i, prm in enumerate(shared_data[UnityDataEnum.PARAMS]):
                 shared_params[i] = prm
             
+            # print(self.record_conn, data.timestamp, shared_params[9]) # TODO: Remove
             if self.record_conn is not None:
                 self.record_conn.send(shared_data)
             
-            if shared_params[0] == 0:
+            if shared_params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
                 exit(0)
                 
 
@@ -95,12 +104,12 @@ def start_server(record_conn):
     asyncio.get_event_loop().run_until_complete(serve(servicer))
 
 
-def start_mujoco(from_build=False, shared_params=None, sim_positions=None):
-    gui_stream.run(from_build, shared_params, sim_positions)
+def start_mujoco(from_build=False, shared_params=None, sim_positions=None, sim_ee_matrix=None):
+    gui_stream.run(from_build, shared_params, sim_positions, sim_ee_matrix)
 
 def start_real_arm(sim_positions):
-    while shared_params[8]<=0 :
-        if shared_params[0] == 0:
+    while shared_params[UnityEnum.ATTACH] <= AttachEnum.NOT_ATTACH :
+        if shared_params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
             return
         pass
     factor = 0
@@ -108,31 +117,62 @@ def start_real_arm(sim_positions):
     nap_configuration = [-0.5*np.pi, -0.6*np.pi, 1*np.pi, 0.5*np.pi, 0.4*np.pi, 0]
     robotic_arm.enable_torque()
     robotic_arm.set_map_from_nap(nap_configuration)
-    while shared_params[8]==1 and shared_params[0] != 0:
+    while shared_params[UnityEnum.ATTACH] == AttachEnum.ATTACH and \
+        shared_params[UnityEnum.APP_STATUS] != AppStatusEnum.OFF:
         factor+=1
         if sim_positions[0] != 0:
             robotic_arm.set_position_from_sim(sim_positions)
     robotic_arm.release_torque()
 
-def start(unity_from_build=True):
+def start(output_folder, unity_from_build = True, 
+          real_arm = False, look_at_target = False,
+          use_esim = False, disable_camera = False,
+          add_shake = False):
     
     p0 = mp.Process(target=start_server, args=(None,))
-    p1 = mp.Process(target=start_mujoco , args=(unity_from_build, shared_params, sim_positions))
-    p2 = mp.Process(target=data_handler.visualize_data , args=(shared_data,))
-    p3 = mp.Process(target=start_real_arm, args=(sim_positions,))
+    # p1 = mp.Process(target=start_mujoco , args=(unity_from_build, shared_params, sim_positions, sim_ee_config))
+    p1 = mp.Process(target=gui_stream.run , 
+                    args=(unity_from_build, shared_params, 
+                          sim_positions, sim_ee_config, 
+                          look_at_target, add_shake))
+    p2 = mp.Process(target=data_handler.visualize_data , 
+                    args=(shared_data, sim_positions, 
+                          sim_ee_config, output_folder,
+                          use_esim, disable_camera))
+    if real_arm:
+        print("Connecting real arm")
+        p3 = mp.Process(target=start_real_arm, args=(sim_positions,))
     
     
     p0.start()
     p1.start()
     p2.start()
-    p3.start()
+    p3.start() if real_arm else None
     
     p0.join()
     p1.join()
     p2.join()
-    p3.join()
+    p3.join() if real_arm else None
 
 if __name__ == "__main__":
-    start()
+    parser = argparse.ArgumentParser(description='Runs the NBEL Robot Arm Unity simulator')
+    parser.add_argument('--output_folder', '-o', help='Output folder to save recorded data, can be absolute path. Defaults to spikes_output')
+    parser.add_argument('--look_at_target', '-l', action='store_true', help='EE looks at target before motion')
+    parser.add_argument('--shake', '-s', action='store_true', help='EE shakes instead of approaching target')
+    parser.add_argument('--disable_camera', '-dc', action='store_true', help='Disable camera output window')
+    parser.add_argument('--create_events', '-e', action='store_true', help='Create events at runtime. Requires esim_torch and CUDA')
+    parser.add_argument('--real_arm', '-r', action='store_true', help='Run with real (physical) arm attached')
+    args = parser.parse_args()
+    output_folder = "spikes_output" if args.output_folder is None else args.output_folder
+    print(f"Output from recordings will be saved to {output_folder}")
+    disable_camera = True if args.disable_camera == True else False
+    look_at_target = True if args.look_at_target == True else False
+    add_shake = True if args.shake == True else False
+    use_esim = True if args.create_events == True else False
+    real_arm = True if args.real_arm == True else False
+    start(output_folder = output_folder, real_arm = real_arm, 
+          look_at_target = look_at_target, use_esim = use_esim,
+          disable_camera = disable_camera, add_shake=add_shake)
+
 
   

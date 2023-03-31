@@ -9,6 +9,7 @@ from project.simulation.state_machine import UnitySensingStateMachine, States
 from project.simulation.controller import Control
 from project.simulation.utilities import *
 from project.simulation.mjremote import mjremote
+from project.simulation.unity_enums import UnityEnum, RobotStatusEnum, AppStatusEnum
 
 
 '''
@@ -29,49 +30,80 @@ index:  values
     12: Target - 0 to 6 [cube, sphere, tetrahedron, torus, mug, spinner, capsule]
 '''
 
-def run(from_build=False, sim_params=None, sim_positions=None):
+def run(from_build=False, sim_params=None, sim_positions=None, 
+        sim_ee_config=None, look_at_target=False, add_shake=False):
+    print(f"Running with look_at_target = {look_at_target}")
     unity_src = "./unity_builds/build0003.x86_64 &"
     unity = None
     if from_build:
         os.system(unity_src)
-        time.sleep(7)
     unity = mjremote()
+    attempt = 0
     while not unity._s:  
-        print("conecting...")
-        unity.connect() 
+        print(f"Connecting to Unity, attempt {attempt}...")
+        time.sleep(2)
+        try:
+            unity.connect() # Blocking
+        except ConnectionRefusedError as e:
+            unity._s = None
+            attempt += 1
     print("SUCCESS")
     
     xml_path = "./project/models/vx300s/vx300s_face_down.xml"
     scene = Mujocoation(xml_path, unity)
     robot = Robot(scene.model, scene.simulation)
     control = Control(robot, scene.simulation)
-    moore = UnitySensingStateMachine(robot, scene, control, orientation=1)
-    robot_status = 0
+    moore = UnitySensingStateMachine(robot, scene, control, 
+                                     orientation=1, 
+                                     look_at_target=look_at_target,
+                                     add_shake=add_shake)
+    robot_status = RobotStatusEnum.SLEEP
     while True:
-        if sim_params[0] == 0:
+        if sim_params[UnityEnum.APP_STATUS] == AppStatusEnum.OFF:
             return
         
-        speed = sim_params[5]
-        if robot_status != sim_params[1]:
-            robot_status = sim_params[1]
-            if robot_status == 0:
+        # Adjust robot status
+        speed = sim_params[UnityEnum.SPEED]
+        if robot_status != sim_params[UnityEnum.ROBOT_STATUS]:
+            robot_status = sim_params[UnityEnum.ROBOT_STATUS]
+            if robot_status == RobotStatusEnum.SLEEP:
                 control.phase = 0
                 control.theta_d = robot.nap
-            elif robot_status == 1:
+            elif robot_status == RobotStatusEnum.START_CONFIG:
                 control.phase = 0
                 control.theta_d = moore.start_config
-            elif robot_status == 2:
-                pos = [sim_params[2]/100, sim_params[3]/100, sim_params[4]/100]
+            elif robot_status == RobotStatusEnum.TARGETING:
+                # Adds targeted object when "Go To Target" clicked
+                pos = [sim_params[UnityEnum.XPOS]/100, 
+                       sim_params[UnityEnum.YPOS]/100, 
+                       sim_params[UnityEnum.ZPOS]/100]
                 moore.set_external_target(pos)
                 moore.curr_state = States.INIT
-        if robot_status == 2:
+        
+        # Apply state machine to get next step
+        if robot_status == RobotStatusEnum.TARGETING:
             moore.eval()
+        
         control.PID(speed)
         scene.show_step()
         if sim_positions is not None:
             pos = robot.get_joints_pos()
             for i, p in enumerate(pos):
                 sim_positions[i] = p
+        try:
+            robot_ee_conf = robot.get_target('EE')
+            # robot_fk = control.FK(robot.get_joints_pos())
+            # robot_fk_l = robot_fk.reshape(16,)
+            # print("AG testing robot_ee_conf", np.round(robot_ee_conf,2))
+            # print("AG testing robot_fk_l", np.round(robot_fk_l,2))
+            for i, p in enumerate(robot_ee_conf):
+                sim_ee_config[i] = p
+            robot_cam_conf = robot.get_target('zed')
+            for i, p in enumerate(robot_cam_conf):
+                sim_ee_config[i+6] = p
+        except Exception:
+            print("Error writing EE and camera configurations")
+        #####
 
     
 if __name__ == '__main__':

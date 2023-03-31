@@ -126,12 +126,11 @@ class Robot:
         return np.copy(self.simulation.data.get_body_xpos('EE'))
     
    
-    
-    def get_target(self):
+    def get_target(self, target_name='target'):
         """ Returns the position and orientation of the target """
         
-        xyz_target = self.simulation.data.get_body_xpos("target")
-        quat_target  = self.simulation.data.get_body_xquat("target")
+        xyz_target = self.simulation.data.get_body_xpos(target_name)
+        quat_target  = self.simulation.data.get_body_xquat(target_name)
         euler_angles = euler_from_quaternion(quat_target)
         return np.hstack([np.copy(xyz_target), np.copy(euler_angles)])
     
@@ -156,7 +155,7 @@ class Robot:
    
     def get_links_positions(self):
         pos_dict = {}
-        names = ['base_link', 'link1', 'link2', 'link3', 'link4', 'link5', 'link6', 'EE']
+        names = ['base_link', 'link1', 'link2', 'link3', 'link4', 'link5', 'link6', 'EE', 'zed']
         for name in names:
             pos = self.simulation.data.get_body_xpos(name)
             pos_dict[name]=pos
